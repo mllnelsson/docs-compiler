@@ -26,10 +26,8 @@ Only document what the user has asked for or in your instructions
 IMPORTANT: Do not create unescary documention md files unless the user has asked for them.
 
 ## Defintion of done
-Always clearly oultine your definitoon of done tigther with your instructions. Your task is not complete until that is done. 
+Always clearly oultine your definitoon of done tigther with your instructions. Your task is not complete until that is done.
 
-### Git
-Unless explicitly told so you shoudl always end your work with creating a github pull request.
 
 ## Context
 Utilize subagents for retrival and discovery based tasks.
