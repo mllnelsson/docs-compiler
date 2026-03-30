@@ -65,3 +65,17 @@ def _parse_config(raw: dict) -> Config:
 
 def load_config(path: Path) -> Config:
     return _parse_config(_read_yaml(path))
+
+
+def write_config(config: Config, path: Path) -> None:
+    data: dict = {}
+
+    if config.docs:
+        data["docs"] = {
+            name: entry.model_dump(exclude_none=True)
+            for name, entry in config.docs.items()
+        }
+
+    data["outputs"] = [out.model_dump() for out in config.outputs]
+
+    path.write_text(yaml.dump(data, default_flow_style=False, sort_keys=False))

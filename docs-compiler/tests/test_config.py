@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from docs_compiler.config import ClaudeOutput, Config, DocEntry, PluginOutput, TocOutput, load_config
+from docs_compiler.config import ClaudeOutput, Config, DocEntry, PluginOutput, TocOutput, load_config, write_config
 from docs_compiler.errors import ConfigError
 
 
@@ -81,3 +81,27 @@ outputs:
 def test_missing_file_raises(tmp_path):
     with pytest.raises(ConfigError, match="not found"):
         load_config(tmp_path / "nonexistent.yaml")
+
+
+def test_round_trip(tmp_path):
+    original = Config(
+        docs={"commit-skill": DocEntry(git="https://github.com/user/skills", path="docs/commit.md")},
+        outputs=[
+            ClaudeOutput(format="claude", include=["python-guidelines", "commit-skill"]),
+            PluginOutput(format="plugin", name="my-plugin", skills=["python-guidelines"], agents=["backlog-agent"]),
+        ],
+    )
+    path = tmp_path / "docs-compiler.yaml"
+    write_config(original, path)
+    loaded = load_config(path)
+    assert loaded == original
+
+
+def test_bootstrap_write(tmp_path):
+    path = tmp_path / "new-dir" / "docs-compiler.yaml"
+    path.parent.mkdir()
+    config = Config(outputs=[ClaudeOutput(format="claude", include=["python-guidelines"])])
+    write_config(config, path)
+    assert path.exists()
+    loaded = load_config(path)
+    assert loaded == config
