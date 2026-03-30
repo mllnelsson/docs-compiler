@@ -121,3 +121,8 @@ DEFAULT_TIMEOUT = 30.0
 
 ## OOP
 Avoid oop and introducing those patterns as much as possible. 
+
+
+## Str-Enum and match
+Instead of repeatingi if / else if statments you will use `match` and `case` syntax together with enums to create the business logic of an application
+
