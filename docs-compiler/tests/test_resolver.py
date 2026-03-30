@@ -4,6 +4,7 @@ from unittest.mock import patch, MagicMock
 import pytest
 
 from docs_compiler.config import Config, DocEntry, ClaudeOutput
+from docs_compiler.errors import DocNotFoundError, GitError
 from docs_compiler.resolver import fetch_remote, resolve_doc, resolve_local
 
 
@@ -28,7 +29,7 @@ def test_resolve_local_case_insensitive(tmp_path):
 
 
 def test_resolve_local_raises_when_missing(tmp_path):
-    with pytest.raises(FileNotFoundError, match="python-guidelines"):
+    with pytest.raises(DocNotFoundError, match="python-guidelines"):
         resolve_local("python-guidelines", tmp_path)
 
 
@@ -71,7 +72,7 @@ def test_fetch_remote_pulls_when_cached(tmp_path):
 
 def test_fetch_remote_raises_on_clone_failure(tmp_path):
     with patch("docs_compiler.resolver.subprocess.run", return_value=_make_completed(1, b"error")):
-        with pytest.raises(RuntimeError, match="git clone failed"):
+        with pytest.raises(GitError, match="git clone failed"):
             fetch_remote("https://github.com/user/repo", "docs/file.md", tmp_path)
 
 
@@ -83,7 +84,7 @@ def test_fetch_remote_raises_on_pull_failure(tmp_path):
     repo_dir.mkdir()
 
     with patch("docs_compiler.resolver.subprocess.run", return_value=_make_completed(1, b"error")):
-        with pytest.raises(RuntimeError, match="git pull failed"):
+        with pytest.raises(GitError, match="git pull failed"):
             fetch_remote(url, "docs/file.md", tmp_path)
 
 

@@ -3,13 +3,14 @@ import subprocess
 from pathlib import Path
 
 from docs_compiler.config import Config
+from docs_compiler.errors import DocNotFoundError, GitError
 
 
 def resolve_local(name: str, source_dir: Path) -> Path:
     for candidate in source_dir.rglob("*"):
         if candidate.is_file() and candidate.stem.lower() == name.lower():
             return candidate
-    raise FileNotFoundError(
+    raise DocNotFoundError(
         f"Doc '{name}' not found in source directory: {source_dir}"
     )
 
@@ -25,7 +26,7 @@ def fetch_remote(git_url: str, path: str, cache_dir: Path) -> Path:
             capture_output=True,
         )
         if result.returncode != 0:
-            raise RuntimeError(
+            raise GitError(
                 f"git pull failed for {git_url}:\n{result.stderr.decode()}"
             )
     else:
@@ -34,7 +35,7 @@ def fetch_remote(git_url: str, path: str, cache_dir: Path) -> Path:
             capture_output=True,
         )
         if result.returncode != 0:
-            raise RuntimeError(
+            raise GitError(
                 f"git clone failed for {git_url}:\n{result.stderr.decode()}"
             )
 
