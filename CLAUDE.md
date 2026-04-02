@@ -58,4 +58,4 @@ All source files are under `docs-compiler/src/docs_compiler/`:
 - `errors.py` — custom exception hierarchy; catch only at CLI boundary
 
 # Code style
-Follow the python-development, astral:uv, and astral:ruff skills.
+IMPORTANT: Always invoke the `coding-guidelines` skill (and the `coding-guidelines/python` sub-skill) before writing or reviewing any Python code. Do not rely on pre-trained style intuition — load the skill first.

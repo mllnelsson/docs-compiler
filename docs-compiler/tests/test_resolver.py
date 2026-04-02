@@ -20,6 +20,16 @@ def test_resolve_local_finds_file(tmp_path):
     assert result == doc
 
 
+def test_resolve_local_finds_skill_md(tmp_path):
+    skill_dir = tmp_path / "python-guidelines"
+    skill_dir.mkdir()
+    doc = skill_dir / "SKILL.md"
+    doc.write_text("content")
+
+    result = resolve_local("python-guidelines", tmp_path)
+    assert result == doc
+
+
 def test_resolve_local_case_insensitive(tmp_path):
     doc = tmp_path / "Python-Guidelines.md"
     doc.write_text("content")

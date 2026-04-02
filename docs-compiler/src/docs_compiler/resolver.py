@@ -5,10 +5,16 @@ from pathlib import Path
 from docs_compiler.config import Config
 from docs_compiler.errors import DocNotFoundError, GitError
 
+SKILL_FILENAME = "SKILL.md"
+
 
 def resolve_local(name: str, source_dir: Path) -> Path:
     for candidate in source_dir.rglob("*"):
-        if candidate.is_file() and candidate.stem.lower() == name.lower():
+        if not candidate.is_file():
+            continue
+        if candidate.name == SKILL_FILENAME and candidate.parent.name.lower() == name.lower():
+            return candidate
+        if candidate.stem.lower() == name.lower():
             return candidate
     raise DocNotFoundError(
         f"Doc '{name}' not found in source directory: {source_dir}"
