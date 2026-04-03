@@ -1,7 +1,9 @@
-import argparse
 import os
-import sys
+from enum import StrEnum, auto
 from pathlib import Path
+from typing import Annotated
+
+import typer
 
 from docs_compiler.config import (
     ClaudeOutput,
@@ -21,6 +23,23 @@ from docs_compiler.resolver import resolve_doc
 
 DEFAULT_CONFIG = "docs-compiler.yaml"
 SOURCE_ENV_VAR = "DOCS_COMPILER_SOURCE"
+
+app = typer.Typer()
+
+
+class Scope(StrEnum):
+    LOCAL = auto()
+    USER = auto()
+
+
+def _resolve_target_dir(scope: Scope, target: str | None) -> Path:
+    if target is not None:
+        return Path(target)
+    match scope:
+        case Scope.LOCAL:
+            return Path(".")
+        case Scope.USER:
+            return Path.home()
 
 
 def _resolve_source_dir(source_flag: str | None) -> Path:
@@ -81,7 +100,7 @@ def _run_install(config: Config, source_dir: Path, target_dir: Path) -> list[str
                     for name in output.agents
                 )
             case TocOutput():
-                print("ToC format not yet implemented", file=sys.stderr)
+                typer.echo("ToC format not yet implemented", err=True)
 
     return written
 
@@ -114,75 +133,69 @@ def _add_doc_to_output(output: Output, name: str) -> None:
             raise ConfigError("Cannot add docs to a 'toc' output")
 
 
-def _cmd_install(args: argparse.Namespace) -> None:
-    config_path = Path(args.config)
-    source_dir = _resolve_source_dir(args.source)
-    target_dir = Path(args.target)
+@app.command()
+def install(
+    config: Annotated[str, typer.Option(metavar="PATH")] = DEFAULT_CONFIG,
+    source: Annotated[str | None, typer.Option(metavar="PATH")] = None,
+    scope: Annotated[Scope, typer.Option()] = Scope.LOCAL,
+    target: Annotated[str | None, typer.Option(metavar="PATH")] = None,
+) -> None:
+    """Resolve docs and write outputs."""
+    try:
+        config_path = Path(config)
+        source_dir = _resolve_source_dir(source)
+        target_dir = _resolve_target_dir(scope, target)
 
-    config = load_config(config_path)
-    written = _run_install(config, source_dir, target_dir)
+        loaded_config = load_config(config_path)
+        written = _run_install(loaded_config, source_dir, target_dir)
 
-    for path in written:
-        print(f"  wrote {path}")
-    print(f"Installed {len(written)} file(s).")
-
-
-def _cmd_add(args: argparse.Namespace) -> None:
-    if args.from_ and not args.path:
-        print("error: --path is required when --from is given", file=sys.stderr)
-        sys.exit(1)
-
-    config_path = Path(args.config)
-    source_dir = _resolve_source_dir(args.source)
-    target_dir = Path(args.target)
-
-    config = _bootstrap_config() if not config_path.exists() else load_config(config_path)
-
-    if args.from_:
-        config.docs[args.name] = DocEntry(git=args.from_, path=args.path)
-
-    output = _select_output(config, args.output)
-    _add_doc_to_output(output, args.name)
-
-    write_config(config, config_path)
-
-    written = _run_install(config, source_dir, target_dir)
-    for path in written:
-        print(f"  wrote {path}")
-    print(f"Installed {len(written)} file(s).")
+        for path in written:
+            typer.echo(f"  wrote {path}")
+        typer.echo(f"Installed {len(written)} file(s).")
+    except DocsCompilerError as e:
+        typer.echo(f"error: {e}", err=True)
+        raise typer.Exit(code=1)
 
 
-def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="docs-compiler")
-    subparsers = parser.add_subparsers(dest="command", required=True)
+@app.command()
+def add(
+    name: Annotated[str, typer.Argument(metavar="NAME")],
+    from_: Annotated[str | None, typer.Option("--from", metavar="URL")] = None,
+    path: Annotated[str | None, typer.Option(metavar="PATH")] = None,
+    output: Annotated[str | None, typer.Option(metavar="NAME")] = None,
+    config: Annotated[str, typer.Option(metavar="PATH")] = DEFAULT_CONFIG,
+    source: Annotated[str | None, typer.Option(metavar="PATH")] = None,
+    scope: Annotated[Scope, typer.Option()] = Scope.LOCAL,
+    target: Annotated[str | None, typer.Option(metavar="PATH")] = None,
+) -> None:
+    """Add a doc/skill and run install."""
+    if from_ and not path:
+        typer.echo("error: --path is required when --from is given", err=True)
+        raise typer.Exit(code=1)
 
-    install = subparsers.add_parser("install", help="Resolve docs and write outputs")
-    install.add_argument("--config", default=DEFAULT_CONFIG, metavar="PATH")
-    install.add_argument("--source", default=None, metavar="PATH")
-    install.add_argument("--target", default=".", metavar="PATH")
+    try:
+        config_path = Path(config)
+        source_dir = _resolve_source_dir(source)
+        target_dir = _resolve_target_dir(scope, target)
 
-    add = subparsers.add_parser("add", help="Add a doc/skill and run install")
-    add.add_argument("name", metavar="NAME")
-    add.add_argument("--from", dest="from_", default=None, metavar="URL")
-    add.add_argument("--path", default=None, metavar="PATH")
-    add.add_argument("--output", default=None, metavar="NAME")
-    add.add_argument("--config", default=DEFAULT_CONFIG, metavar="PATH")
-    add.add_argument("--source", default=None, metavar="PATH")
-    add.add_argument("--target", default=".", metavar="PATH")
+        loaded_config = _bootstrap_config() if not config_path.exists() else load_config(config_path)
 
-    return parser
+        if from_:
+            loaded_config.docs[name] = DocEntry(git=from_, path=path)
+
+        selected_output = _select_output(loaded_config, output)
+        _add_doc_to_output(selected_output, name)
+
+        write_config(loaded_config, config_path)
+
+        written = _run_install(loaded_config, source_dir, target_dir)
+        for written_path in written:
+            typer.echo(f"  wrote {written_path}")
+        typer.echo(f"Installed {len(written)} file(s).")
+    except DocsCompilerError as e:
+        typer.echo(f"error: {e}", err=True)
+        raise typer.Exit(code=1)
 
 
 def main() -> None:
-    parser = _build_parser()
-    args = parser.parse_args()
-
-    try:
-        match args.command:
-            case "install":
-                _cmd_install(args)
-            case "add":
-                _cmd_add(args)
-    except DocsCompilerError as e:
-        print(f"error: {e}", file=sys.stderr)
-        sys.exit(1)
+    app()
